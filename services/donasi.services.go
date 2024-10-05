@@ -10,7 +10,7 @@ import (
 
 func PostDonasi(db *sql.DB, donasi models.Donasi) error {
 	donasi.ID = uuid.New() // Generate a new UUID for the product
-	_, err := db.Exec("INSERT INTO donates (id, user_id, nominal, pesan, created_at, updated_at) VALUES (:1, :2, :3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+	_, err := db.Exec("INSERT INTO donations (id, user_id, nominal, pesan, created_at, updated_at) VALUES (:1, :2, :3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
 		donasi.ID.String(), donasi.UserID.String(), donasi.Nominal, donasi.Pesan)
 	if err != nil {
 		return fmt.Errorf("failed to create donasi: %v", err)
@@ -19,7 +19,7 @@ func PostDonasi(db *sql.DB, donasi models.Donasi) error {
 }
 
 func GetDonasi(db *sql.DB) ([]models.Donasi, error) {
-	rows, err := db.Query("SELECT id, user_id, nominal, pesan, created_at, updated_at FROM donates")
+	rows, err := db.Query("SELECT id, user_id, nominal, pesan, created_at, updated_at FROM donations")
 	if err != nil {
 		return nil, err
 	}

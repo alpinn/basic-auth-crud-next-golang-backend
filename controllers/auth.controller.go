@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"time"
 
@@ -33,6 +34,17 @@ func Register(db *sql.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "registration successful"})
 	}
 }
+func GetAllUser(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, err := services.GetUsers(db)
+		if err != nil {
+			log.Printf("GetAllUser: failed to get user: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to get user"})
+			return
+		}
+		c.JSON(http.StatusOK, user)
+	}
+}
 
 func Login(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -49,7 +61,7 @@ func Login(db *sql.DB) gin.HandlerFunc {
 		}
 
 		sessionKey := "session:" + user.ID.String()
-		err = services.RedisClient.Set(config.Ctx, sessionKey, user.Email, 30*time.Minute).Err()
+		err = services.Rdb.Set(config.Ctx, sessionKey, user.Email, 30*time.Minute).Err()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to create session"})
 			return
@@ -74,7 +86,7 @@ func Me(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Retrieve the email from Redis based on the session key
-		email, err := services.RedisClient.Get(config.Ctx, sessionKey).Result()
+		email, err := services.Rdb.Get(config.Ctx, sessionKey).Result()
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Try to login"})
 			return

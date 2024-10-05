@@ -11,4 +11,5 @@ func AuthRouter(r *gin.Engine, db *sql.DB) {
 	r.POST("/register", controllers.Register(db))
 	r.POST("/login", controllers.Login(db))
 	r.GET("/me", controllers.Me(db))
+	r.GET("/users", controllers.GetAllUser(db))
 }

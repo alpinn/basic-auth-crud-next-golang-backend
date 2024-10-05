@@ -25,7 +25,7 @@ func CreateDonasi(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid user ID"})
 			return
 		}
-		donasi.UserID = userID // Set UserID for the donasi
+		donasi.UserID = userID
 
 		err = services.PostDonasi(db, donasi)
 		if err != nil {

@@ -1,39 +1,53 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
 
 	"github.com/alpinn/auth-go/config"
 	"github.com/alpinn/auth-go/routes"
-	services "github.com/alpinn/auth-go/services"
+	"github.com/alpinn/auth-go/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	_ "github.com/godror/godror"
+)
+
+var (
+	db  *sql.DB
+	Rdb *redis.Client
+	ctx = context.Background()
 )
 
 func main() {
-	config.Init()
+	// Load configuration
+	cfg := config.Load()
 
-	config.InitDB()
-	defer func() {
-		if err := config.DB.Close(); err != nil {
-			log.Fatalf("Failed to close DB connection: %v", err)
-		}
-	}()
+	// Oracle connection
+	var err error
+	db, err = sql.Open("godror", cfg.OracleDSN)
+	if err != nil {
+		log.Fatal("Failed to connect to Oracle:", err)
+	}
+	defer db.Close()
 
-	redisClient := config.InitRedis()
-	defer func() {
-		if err := redisClient.Close(); err != nil {
-			log.Fatalf("Failed to close Redis connection: %v", err)
-		}
-	}()
+	// Redis connection
+	Rdb = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	defer Rdb.Close()
 
-	services.InitRedis(redisClient)
+	services.InitRedis(Rdb)
 
+	// Gin setup
 	r := gin.Default()
 
-	// Register routes
-	routes.AuthRouter(r, config.DB)
-	routes.DonasiRouter(r, config.DB)
+	routes.AuthRouter(r, db)
+	routes.DonasiRouter(r, db)
 
-	log.Println("Server running on port 8080")
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Hello",
+		})
+	})
+	log.Println("Server running on localhost:8080")
 	r.Run(":8080")
 }
