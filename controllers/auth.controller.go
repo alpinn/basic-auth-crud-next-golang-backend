@@ -10,49 +10,75 @@ import (
 	models "github.com/alpinn/auth-go/models"
 	services "github.com/alpinn/auth-go/services"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
-func Register(db *sql.DB) gin.HandlerFunc {
+type RegisterRequest struct {
+	Name            string `json:"name"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	PasswordConfirm string `json:"password_confirm"`
+}
+
+func Register(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var user models.User
-		if err := c.ShouldBindJSON(&user); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var requestBody RegisterRequest
+
+		// Bind JSON input to requestBody struct
+		if err := c.ShouldBindJSON(&requestBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input: " + err.Error()})
 			return
 		}
 
-		if user.Password != c.PostForm("password_confirm") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "passwords do not match"})
+		if requestBody.Password != requestBody.PasswordConfirm {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match"})
 			return
+		}
+
+		// Map data to the User model
+		user := models.User{
+			ID:       uuid.New(),
+			Name:     requestBody.Name,
+			Email:    requestBody.Email,
+			Password: requestBody.Password,
 		}
 
 		err := services.RegisterUser(db, user)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Registration failed: " + err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "registration successful"})
+		c.JSON(http.StatusOK, gin.H{"message": "Registration successful"})
 	}
 }
-func GetAllUser(db *sql.DB) gin.HandlerFunc {
+
+func GetAllUser(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, err := services.GetUsers(db)
+		users, err := services.GetUsers(db)
 		if err != nil {
-			log.Printf("GetAllUser: failed to get user: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to get user"})
+			log.Printf("GetAllUser: failed to get users: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to get users"})
 			return
 		}
-		c.JSON(http.StatusOK, user)
+
+		c.JSON(http.StatusOK, users)
 	}
 }
 
-func Login(db *sql.DB) gin.HandlerFunc {
+func Login(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var credentials models.User
+		var credentials struct {
+			Email    string `json:"email" binding:"required"`
+			Password string `json:"password" binding:"required"`
+		}
 		if err := c.ShouldBindJSON(&credentials); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
+		log.Printf("Password received from request: '%s'", credentials.Password)
 
 		user, err := services.LoginUser(db, credentials.Email, credentials.Password)
 		if err != nil {
@@ -69,32 +95,29 @@ func Login(db *sql.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"user":       user,
-			"sessionKey": sessionKey, // Return the session key
+			"sessionKey": sessionKey,
 		})
 	}
 }
 
-func Me(db *sql.DB) gin.HandlerFunc {
+func Me(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get the session key from the request headers
-		sessionKey := c.Request.Header.Get("User-ID") // Use the key you stored it under
+		sessionKey := c.Request.Header.Get("Session-Key")
 
-		// Check if the session key is provided
 		if sessionKey == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Try to login"})
 			return
 		}
 
-		// Retrieve the email from Redis based on the session key
 		email, err := services.Rdb.Get(config.Ctx, sessionKey).Result()
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Try to login"})
 			return
 		}
 
-		// Fetch the user from the database using the email
 		var user models.User
-		err = db.QueryRow("SELECT id, name, email FROM users WHERE email = :1", email).Scan(&user.ID, &user.Name, &user.Email)
+		err = db.QueryRow("SELECT id, name, email FROM users WHERE email = $1", email).Scan(&user.ID, &user.Name, &user.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, gin.H{"msg": "User not found"})
@@ -104,7 +127,6 @@ func Me(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Return the user data
 		c.JSON(http.StatusOK, user)
 	}
 }
