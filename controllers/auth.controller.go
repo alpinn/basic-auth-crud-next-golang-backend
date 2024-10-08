@@ -130,3 +130,22 @@ func Me(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, user)
 	}
 }
+
+func Logout(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionKey := c.Request.Header.Get("Session-Key")
+
+		if sessionKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "No active session found"})
+			return
+		}
+
+		err := services.Rdb.Del(config.Ctx, sessionKey).Err()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to log out"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"msg": "Successfully logged out"})
+	}
+}

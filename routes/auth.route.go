@@ -7,8 +7,11 @@ import (
 )
 
 func AuthRouter(r *gin.Engine, db *sqlx.DB) {
+	r.GET("/users", controllers.GetAllUser(db))
+
 	r.POST("/register", controllers.Register(db))
 	r.POST("/login", controllers.Login(db))
+
 	r.GET("/me", controllers.Me(db))
-	r.GET("/users", controllers.GetAllUser(db))
+	r.DELETE("/logout", controllers.Logout(db))
 }
