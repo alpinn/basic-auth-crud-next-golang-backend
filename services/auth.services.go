@@ -33,7 +33,7 @@ func VerifyPassword(hashedPassword, password string) bool {
 }
 
 func GetUsers(db *sqlx.DB) ([]models.User, error) {
-	rows, err := db.Query("SELECT id, name, email, created_at, updated_at FROM public.users")
+	rows, err := db.Query("SELECT id, name, email, role, created_at, updated_at FROM public.users")
 	if err != nil {
 		log.Println("Error DB Query:", err)
 		return nil, err
@@ -45,7 +45,7 @@ func GetUsers(db *sqlx.DB) ([]models.User, error) {
 		var user models.User
 		var id string
 		// Scan the row into the variables
-		err := rows.Scan(&id, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+		err := rows.Scan(&id, &user.Name, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			log.Println("Error scanning row:", err)
 			return nil, err
@@ -74,8 +74,8 @@ func RegisterUser(db *sqlx.DB, user models.User) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec("INSERT INTO users (id, name, email, password, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW())",
-		user.ID, user.Name, user.Email, hashedPassword)
+	_, err = db.Exec("INSERT INTO users (id, name, email, password, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())",
+		user.ID, user.Name, user.Email, hashedPassword, user.Role)
 	if err != nil {
 		return fmt.Errorf("failed to register user: %v", err)
 	}
@@ -85,23 +85,20 @@ func RegisterUser(db *sqlx.DB, user models.User) error {
 func LoginUser(db *sqlx.DB, email, password string) (*models.User, error) {
 	var user models.User
 
-	row := db.QueryRow("SELECT id, name, email, password, created_at, updated_at FROM public.users WHERE email = $1", email)
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+	row := db.QueryRow("SELECT id, name, email, password, role, created_at, updated_at FROM public.users WHERE email = $1", email)
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		log.Println("LoginUser: no user found with this email")
 		return nil, fmt.Errorf("no user found with this email")
 	}
 
-	log.Printf("Hashed Password from DB: %s", user.Password)
-
 	if !VerifyPassword(user.Password, password) {
 		log.Println("LoginUser: password does not match")
 		return nil, fmt.Errorf("invalid credentials")
 	}
-	log.Println("LoginUser: password matched successfully")
 
 	// Store session in Redis
-	err = Rdb.Set(config.Ctx, fmt.Sprintf("session:%s", user.ID), user.Email, 30*time.Minute).Err()
+	err = Rdb.Set(config.Ctx, user.ID.String(), user.Email, 30*time.Minute).Err()
 	if err != nil {
 		return nil, fmt.Errorf("failed to set session in Redis: %v", err)
 	}
