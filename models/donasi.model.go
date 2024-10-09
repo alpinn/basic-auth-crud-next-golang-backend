@@ -9,6 +9,7 @@ import (
 type Donasi struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
+	Name      string    `json:"name"`
 	Nominal   int       `json:"nominal"`
 	Pesan     string    `json:"pesan"`
 	CreatedAt time.Time `json:"created_at"`

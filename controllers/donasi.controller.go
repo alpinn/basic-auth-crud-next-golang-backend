@@ -1,48 +1,89 @@
 package controllers
 
 import (
-	"database/sql"
 	"net/http"
 
+	"github.com/alpinn/auth-go/config"
 	models "github.com/alpinn/auth-go/models"
 	services "github.com/alpinn/auth-go/services"
-	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/gin-gonic/gin"
 )
 
-func CreateDonasi(db *sql.DB) gin.HandlerFunc {
+func CreateDonasi(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var donasi models.Donasi
+
 		if err := c.ShouldBindJSON(&donasi); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid input"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
-		// Parse user_id from path params
-		userID, err := uuid.Parse(c.Param("user_id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid user ID"})
+		sessionKey := c.Request.Header.Get("Session-Key")
+		if sessionKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "No active session found"})
 			return
 		}
-		donasi.UserID = userID
+
+		email, err := services.Rdb.Get(config.Ctx, sessionKey).Result()
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Please login again"})
+			return
+		}
+
+		var user models.User
+		err = db.QueryRow("SELECT id, name FROM users WHERE email = $1", email).Scan(&user.ID, &user.Name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to fetch user details"})
+			return
+		}
+
+		donasi.UserID = user.ID
+		donasi.Name = user.Name
 
 		err = services.PostDonasi(db, donasi)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to create product"})
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, donasi)
+
+		c.JSON(http.StatusOK, gin.H{"msg": "Donation created successfully"})
 	}
 }
 
-func GetAllDonasi(db *sql.DB) gin.HandlerFunc {
+func GetAllDonasi(db *sqlx.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		donasi, err := services.GetDonasi(db)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve donasi"})
+		sessionKey := c.Request.Header.Get("Session-Key")
+		if sessionKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "No active session found"})
 			return
 		}
-		c.JSON(http.StatusOK, donasi)
+
+		email, err := services.Rdb.Get(config.Ctx, sessionKey).Result()
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Please login again"})
+			return
+		}
+
+		var userRole string
+		err = db.QueryRow("SELECT role FROM users WHERE email = $1", email).Scan(&userRole)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user role"})
+			return
+		}
+
+		if userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{"msg": "Access denied. Admins only."})
+			return
+		}
+
+		donasis, err := services.GetDonasi(db)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, donasis)
 	}
 }
