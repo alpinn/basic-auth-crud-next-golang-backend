@@ -109,8 +109,6 @@ func Login(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("Password received from request: '%s'", credentials.Password)
-
 		user, err := services.LoginUser(db, credentials.Email, credentials.Password)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
