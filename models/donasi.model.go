@@ -12,6 +12,7 @@ type Donasi struct {
 	Name      string    `json:"name"`
 	Nominal   int       `json:"nominal"`
 	Pesan     string    `json:"pesan"`
+	Url       string    `json:"url"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

@@ -11,8 +11,8 @@ import (
 
 func PostDonasi(db *sqlx.DB, donasi models.Donasi) error {
 	donasi.ID = uuid.New()
-	_, err := db.Exec("INSERT INTO donasi (id, user_id, name, nominal, pesan, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())",
-		donasi.ID, donasi.UserID, donasi.Name, donasi.Nominal, donasi.Pesan)
+	_, err := db.Exec("INSERT INTO donasi (id, user_id, name, nominal, pesan, url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+		donasi.ID, donasi.UserID, donasi.Name, donasi.Nominal, donasi.Pesan, donasi.Url)
 	if err != nil {
 		log.Println("Error inserting donation:", err)
 		return fmt.Errorf("failed to create donasi: %v", err)
@@ -21,7 +21,7 @@ func PostDonasi(db *sqlx.DB, donasi models.Donasi) error {
 }
 
 func GetDonasi(db *sqlx.DB) ([]models.Donasi, error) {
-	rows, err := db.Query("SELECT d.id, d.user_id, d.nominal, d.pesan, d.created_at, d.updated_at, u.name FROM donasi d JOIN users u ON d.user_id = u.id")
+	rows, err := db.Query("SELECT d.id, d.user_id, d.nominal, d.pesan, d.url, d.created_at, d.updated_at, u.name FROM donasi d JOIN users u ON d.user_id = u.id")
 	if err != nil {
 		log.Println("Error querying donations:", err)
 		return nil, fmt.Errorf("failed to get donations: %v", err)
@@ -31,7 +31,7 @@ func GetDonasi(db *sqlx.DB) ([]models.Donasi, error) {
 	var donasis []models.Donasi
 	for rows.Next() {
 		var donasi models.Donasi
-		if err := rows.Scan(&donasi.ID, &donasi.UserID, &donasi.Nominal, &donasi.Pesan, &donasi.CreatedAt, &donasi.UpdatedAt, &donasi.Name); err != nil {
+		if err := rows.Scan(&donasi.ID, &donasi.UserID, &donasi.Nominal, &donasi.Pesan, &donasi.Url, &donasi.CreatedAt, &donasi.UpdatedAt, &donasi.Name); err != nil {
 			log.Println("Error scanning donation row:", err)
 			return nil, err
 		}

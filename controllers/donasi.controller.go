@@ -74,7 +74,7 @@ func GetAllDonasi(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		if userRole != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"msg": "Access denied. Admins only."})
+			c.JSON(http.StatusForbidden, gin.H{"msg": "Access denied."})
 			return
 		}
 
