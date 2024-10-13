@@ -82,11 +82,6 @@ func GetAllUser(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if user.Role != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"msg": "Access denied"})
-			return
-		}
-
 		users, err := services.GetUsers(db)
 		if err != nil {
 			log.Printf("GetAllUser: failed to get users: %v", err)

@@ -73,11 +73,6 @@ func GetAllDonasi(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		if userRole != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"msg": "Access denied."})
-			return
-		}
-
 		donasis, err := services.GetDonasi(db)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
