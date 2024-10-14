@@ -173,3 +173,44 @@ func Logout(db *sqlx.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"msg": "Successfully logged out"})
 	}
 }
+
+func Update(db *sqlx.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionKey := c.Request.Header.Get("Session-Key")
+		if sessionKey == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "No active session found"})
+			return
+		}
+
+		userIDParam := c.Param("id")
+		userID, err := uuid.Parse(userIDParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid user ID"})
+			return
+		}
+
+		_, err = services.Rdb.Get(config.Ctx, sessionKey).Result()
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"msg": "Please login"})
+			return
+		}
+
+		var input struct {
+			Name     string `json:"name"`
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid input data"})
+			return
+		}
+
+		if err := services.UpdateUser(db, userID, input.Name, input.Email, input.Password); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"msg": "User updated successfully"})
+	}
+}

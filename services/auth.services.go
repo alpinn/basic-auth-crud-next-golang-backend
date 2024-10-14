@@ -105,3 +105,26 @@ func LoginUser(db *sqlx.DB, email, password string) (*models.User, error) {
 
 	return &user, nil
 }
+
+func UpdateUser(db *sqlx.DB, userID uuid.UUID, name string, email string, password string) error {
+	var err error
+	if password != "" {
+		hashedPassword, err := HashPassword(password)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %v", err)
+		}
+
+		_, err = db.Exec("UPDATE users SET name = $1, email = $2, password = $3, updated_at = NOW() WHERE id = $4",
+			name, email, hashedPassword, userID)
+		if err != nil {
+			return fmt.Errorf("failed to update user with password: %v", err)
+		}
+	} else {
+		_, err = db.Exec("UPDATE users SET name = $1, email = $2, updated_at = NOW() WHERE id = $3",
+			name, email, userID)
+		if err != nil {
+			return fmt.Errorf("failed to update user without password: %v", err)
+		}
+	}
+	return nil
+}
