@@ -37,7 +37,6 @@ func Register(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Map data to the User model
 		user := models.User{
 			ID:       uuid.New(),
 			Name:     requestBody.Name,
@@ -196,14 +195,24 @@ func Update(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var input struct {
-			Name     string `json:"name"`
-			Email    string `json:"email"`
-			Password string `json:"password"`
+			Name            string `json:"name"`
+			Email           string `json:"email"`
+			Password        string `json:"password"`
+			PasswordConfirm string `json:"password_confirm"`
 		}
 
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid input data"})
 			return
+		}
+
+		if input.Password != "" && input.Password != input.PasswordConfirm {
+			c.JSON(http.StatusBadRequest, gin.H{"msg": "Passwords do not match"})
+			return
+		}
+
+		if input.Password == "" {
+			input.Password = ""
 		}
 
 		if err := services.UpdateUser(db, userID, input.Name, input.Email, input.Password); err != nil {

@@ -94,7 +94,7 @@ func LoginUser(db *sqlx.DB, email, password string) (*models.User, error) {
 
 	if !VerifyPassword(user.Password, password) {
 		log.Println("LoginUser: password does not match")
-		return nil, fmt.Errorf("invalid credentials")
+		return nil, fmt.Errorf("password does not match")
 	}
 
 	// Store session in Redis
@@ -117,13 +117,13 @@ func UpdateUser(db *sqlx.DB, userID uuid.UUID, name string, email string, passwo
 		_, err = db.Exec("UPDATE users SET name = $1, email = $2, password = $3, updated_at = NOW() WHERE id = $4",
 			name, email, hashedPassword, userID)
 		if err != nil {
-			return fmt.Errorf("failed to update user with password: %v", err)
+			return fmt.Errorf("failed to update user: %v", err)
 		}
 	} else {
 		_, err = db.Exec("UPDATE users SET name = $1, email = $2, updated_at = NOW() WHERE id = $3",
 			name, email, userID)
 		if err != nil {
-			return fmt.Errorf("failed to update user without password: %v", err)
+			return fmt.Errorf("failed to update user: %v", err)
 		}
 	}
 	return nil
