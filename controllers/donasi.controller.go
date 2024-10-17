@@ -33,7 +33,7 @@ func CreateDonasi(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user models.User
-		err = db.QueryRow("SELECT id, name FROM users WHERE email = $1", email).Scan(&user.ID, &user.Name)
+		err = db.QueryRow("SELECT id, name FROM users WHERE email = :1", email).Scan(&user.ID, &user.Name)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to fetch user details"})
 			return
@@ -67,7 +67,7 @@ func GetAllDonasi(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var userRole string
-		err = db.QueryRow("SELECT role FROM users WHERE email = $1", email).Scan(&userRole)
+		err = db.QueryRow("SELECT role FROM users WHERE email = :1", email).Scan(&userRole)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user role"})
 			return

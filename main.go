@@ -14,8 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 
-	// _ "github.com/godror/godror"
-	_ "github.com/jackc/pgx/v4/stdlib"
+	_ "github.com/godror/godror"
+	// _ "github.com/jackc/pgx/v4/stdlib"
 )
 
 var (
@@ -30,18 +30,18 @@ func main() {
 
 	// postgres connection
 	var err error
-	db, err = sqlx.Connect("pgx", cfg.PostgresDSN)
-	log.Printf("Connecting to PostgreSQL with DSN: %s", cfg.PostgresDSN)
+	db, err = sqlx.Connect("godror", cfg.OracleDSN)
+	log.Printf("Connecting to Oracle with DSN: %s", cfg.OracleDSN)
 	if err != nil {
-		log.Fatal("Failed to connect to PostgreSQL:", err)
+		log.Fatal("Failed to connect to Oracle:", err)
 	}
 	defer db.Close()
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatal("Failed to ping Postgres:", err)
+		log.Fatal("Failed to ping Oracle:", err)
 	} else {
-		log.Println("Successfully connected to Postgres!")
+		log.Println("Successfully connected to Oracle!")
 	}
 
 	// Redis connection

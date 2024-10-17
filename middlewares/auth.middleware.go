@@ -26,7 +26,7 @@ func AdminMiddleware(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var userRole string
-		err = db.QueryRow("SELECT role FROM users WHERE email = $1", email).Scan(&userRole)
+		err = db.QueryRow("SELECT role FROM users WHERE email = :1", email).Scan(&userRole)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to retrieve user role"})
 			c.Abort()
