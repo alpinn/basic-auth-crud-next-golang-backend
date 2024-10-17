@@ -9,8 +9,8 @@ import (
 )
 
 type Config struct {
-	PostgresDSN string
-	RedisAddr   string
+	OracleDSN string
+	RedisAddr string
 }
 
 var Ctx = context.Background()
@@ -22,7 +22,8 @@ func Load() Config {
 	}
 
 	return Config{
-		PostgresDSN: os.Getenv("POSTGRES_DSN"),
-		RedisAddr:   os.Getenv("REDIS_ADDR"),
+		// PostgresDSN: os.Getenv("POSTGRES_DSN"),
+		OracleDSN: os.Getenv("ORACLE_DSN"),
+		RedisAddr: os.Getenv("REDIS_ADDR"),
 	}
 }

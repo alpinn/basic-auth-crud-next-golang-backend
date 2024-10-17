@@ -70,14 +70,28 @@ func GetAllUser(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user models.User
-		err = db.QueryRow("SELECT id, name, email, role FROM public.users WHERE email = $1", email).
-			Scan(&user.ID, &user.Name, &user.Email, &user.Role)
+		var rawID []byte
+		err = db.QueryRow("SELECT id, name, email, role FROM users WHERE email = :1", email).
+			Scan(&rawID, &user.Name, &user.Email, &user.Role)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, gin.H{"msg": "User not found"})
 			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to fetch user details"})
 			}
+			return
+		}
+
+		if len(rawID) == 0 {
+			log.Println("GetAllUser: empty ID returned from database")
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "empty ID returned from database"})
+			return
+		}
+
+		user.ID, err = uuid.FromBytes(rawID)
+		if err != nil {
+			log.Printf("GetAllUser: error converting RAW to UUID: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Failed to convert user ID"})
 			return
 		}
 
@@ -140,7 +154,9 @@ func Me(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		var user models.User
-		err = db.QueryRow("SELECT id, name, email, role FROM users WHERE email = $1", email).Scan(&user.ID, &user.Name, &user.Email, &user.Role)
+		var rawID []byte
+
+		err = db.QueryRow("SELECT id, name, email, role FROM users WHERE email = :1", email).Scan(&rawID, &user.Name, &user.Email, &user.Role)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, gin.H{"msg": "User not found"})
@@ -150,6 +166,12 @@ func Me(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
+		user.ID, err = uuid.FromBytes(rawID)
+		if err != nil {
+			log.Println("Error converting RAW id to UUID:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"msg": "Internal Server Error"})
+			return
+		}
 		c.JSON(http.StatusOK, user)
 	}
 }
@@ -182,11 +204,13 @@ func Update(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		userIDParam := c.Param("id")
-		userID, err := uuid.Parse(userIDParam)
+		userUUID, err := uuid.Parse(userIDParam)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"msg": "Invalid user ID"})
 			return
 		}
+
+		userID := userUUID[:]
 
 		_, err = services.Rdb.Get(config.Ctx, sessionKey).Result()
 		if err != nil {

@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	models "github.com/alpinn/auth-go/models"
 	"github.com/google/uuid"
@@ -11,8 +12,11 @@ import (
 
 func PostDonasi(db *sqlx.DB, donasi models.Donasi) error {
 	donasi.ID = uuid.New()
-	_, err := db.Exec("INSERT INTO donasi (id, user_id, name, nominal, pesan, url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
-		donasi.ID, donasi.UserID, donasi.Name, donasi.Nominal, donasi.Pesan, donasi.Url)
+	uuidHexID := strings.ReplaceAll(donasi.ID.String(), "-", "")
+	uuidHexUserID := strings.ReplaceAll(donasi.UserID.String(), "-", "")
+
+	_, err := db.Exec("INSERT INTO donasi (id, user_id, name, nominal, pesan, url, created_at, updated_at) VALUES (:1, :2, :3, :4, :5, :6, SYSDATE, SYSDATE)",
+		uuidHexID, uuidHexUserID, donasi.Name, donasi.Nominal, donasi.Pesan, donasi.Url)
 	if err != nil {
 		log.Println("Error inserting donation:", err)
 		return fmt.Errorf("failed to create donasi: %v", err)

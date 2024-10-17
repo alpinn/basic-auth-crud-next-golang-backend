@@ -33,7 +33,7 @@ func VerifyPassword(hashedPassword, password string) bool {
 }
 
 func GetUsers(db *sqlx.DB) ([]models.User, error) {
-	rows, err := db.Query("SELECT id, name, email, role, created_at, updated_at FROM public.users")
+	rows, err := db.Query("SELECT id, name, email, role, created_at, updated_at FROM users")
 	if err != nil {
 		log.Println("Error DB Query:", err)
 		return nil, err
@@ -43,17 +43,21 @@ func GetUsers(db *sqlx.DB) ([]models.User, error) {
 	var users []models.User
 	for rows.Next() {
 		var user models.User
-		var id string
-		// Scan the row into the variables
-		err := rows.Scan(&id, &user.Name, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+		var rawID []byte
+		err := rows.Scan(&rawID, &user.Name, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			log.Println("Error scanning row:", err)
 			return nil, err
 		}
 
-		user.ID, err = uuid.Parse(id)
+		if len(rawID) == 0 {
+			log.Println("GetUsers: empty ID returned from database")
+			return nil, fmt.Errorf("empty ID returned from database")
+		}
+
+		user.ID, err = uuid.FromBytes(rawID)
 		if err != nil {
-			log.Printf("GetUsers: error parsing UUID: %v", err)
+			log.Printf("GetUsers: error converting RAW to UUID: %v", err)
 			return nil, err
 		}
 
@@ -74,8 +78,13 @@ func RegisterUser(db *sqlx.DB, user models.User) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec("INSERT INTO users (id, name, email, password, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())",
-		user.ID, user.Name, user.Email, hashedPassword, user.Role)
+
+	rawID := user.ID[:]
+
+	// _, err = db.Exec("INSERT INTO users (id, name, email, password, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())",
+	_, err = db.Exec("INSERT INTO users (id, name, email, password, role, created_at, updated_at) VALUES (:1, :2, :3, :4, :5, SYSDATE, SYSDATE)",
+		rawID, user.Name, user.Email, hashedPassword, user.Role)
+
 	if err != nil {
 		return fmt.Errorf("failed to register user: %v", err)
 	}
@@ -84,12 +93,23 @@ func RegisterUser(db *sqlx.DB, user models.User) error {
 
 func LoginUser(db *sqlx.DB, email, password string) (*models.User, error) {
 	var user models.User
+	var rawID []byte
 
-	row := db.QueryRow("SELECT id, name, email, password, role, created_at, updated_at FROM public.users WHERE email = $1", email)
-	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	row := db.QueryRow("SELECT id, name, email, password, role, created_at, updated_at FROM users WHERE email = :1", email)
+	err := row.Scan(&rawID, &user.Name, &user.Email, &user.Password, &user.Role, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		log.Println("LoginUser: no user found with this email")
+		log.Printf("LoginUser: no user found with this email, error: %v", err)
 		return nil, fmt.Errorf("no user found with this email")
+	}
+
+	if len(rawID) != 16 {
+		return nil, fmt.Errorf("invalid RAW ID length: %d, expected: 16", len(rawID))
+	}
+
+	user.ID, err = uuid.FromBytes(rawID)
+	if err != nil {
+		log.Printf("LoginUser: error converting RAW to UUID: %v", err)
+		return nil, fmt.Errorf("error converting user ID")
 	}
 
 	if !VerifyPassword(user.Password, password) {
@@ -106,7 +126,7 @@ func LoginUser(db *sqlx.DB, email, password string) (*models.User, error) {
 	return &user, nil
 }
 
-func UpdateUser(db *sqlx.DB, userID uuid.UUID, name string, email string, password string) error {
+func UpdateUser(db *sqlx.DB, userID []byte, name string, email string, password string) error {
 	var err error
 	if password != "" {
 		hashedPassword, err := HashPassword(password)
@@ -114,13 +134,13 @@ func UpdateUser(db *sqlx.DB, userID uuid.UUID, name string, email string, passwo
 			return fmt.Errorf("failed to hash password: %v", err)
 		}
 
-		_, err = db.Exec("UPDATE users SET name = $1, email = $2, password = $3, updated_at = NOW() WHERE id = $4",
+		_, err = db.Exec("UPDATE users SET name = :1, email = :2, password = :3, updated_at = SYSDATE WHERE id = :4",
 			name, email, hashedPassword, userID)
 		if err != nil {
 			return fmt.Errorf("failed to update user: %v", err)
 		}
 	} else {
-		_, err = db.Exec("UPDATE users SET name = $1, email = $2, updated_at = NOW() WHERE id = $3",
+		_, err = db.Exec("UPDATE users SET name = :1, email = :2, updated_at = SYSDATE WHERE id = :3",
 			name, email, userID)
 		if err != nil {
 			return fmt.Errorf("failed to update user: %v", err)
